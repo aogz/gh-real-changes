@@ -1,0 +1,1 @@
+# Calculates changed lines without tests and docs

@@ -1,10 +1,10 @@
-let totalDeletions = 0, totalAdditions = 0;
+function calculateChangedLines () {
+  let totalDeletions = 0, totalAdditions = 0;
 
-setTimeout(() => {
   const diffStat = document.getElementById('diffstat');
   const loadingBlock = document.createElement('span')
   loadingBlock.id = 'loading-block';
-  loadingBlock.textContent = `loading 🤔`
+  loadingBlock.textContent = `loading...`
   diffStat.prepend(loadingBlock)
   
   const changedFiles = document.querySelectorAll('.file[data-tagsearch-path]')
@@ -27,7 +27,7 @@ setTimeout(() => {
   if (diffStatAdditions === `+${totalAdditions}` && diffStatDeletions === `−${totalDeletions}`) {
     const realDeletions = document.createElement('span')
     realDeletions.className = 'color-fg-danger'
-    realDeletions.textContent = ` no tests? no docs? 🤨 `
+    realDeletions.textContent = ` no tests or docs?🤨 `
     diffStat.prepend(realDeletions)
   } else {
     const divider = document.createElement('span')
@@ -44,4 +44,62 @@ setTimeout(() => {
     realAdditions.textContent = ` +${totalAdditions} `
     diffStat.prepend(realAdditions)
   }
-}, 2000)
+}
+
+function waitForTurboFrame(turboFrameSelector) {
+  return new Promise(resolve => {
+      if (document.querySelector(turboFrameSelector)) {
+          return resolve(document.querySelector(turboFrameSelector));
+      }
+
+      const observer = new MutationObserver(mutations => {
+          if (document.querySelector(turboFrameSelector)) {
+              observer.disconnect();
+              resolve(document.querySelector(turboFrameSelector));
+          }
+      });
+
+      observer.observe(document.body, {
+          childList: true,
+          subtree: true
+      });
+  });
+}
+
+
+function start(turboFrameSelector) {
+  const turboFrame = document.querySelector(turboFrameSelector)
+  if (!turboFrame && !window.location.href.endsWith("/files")) {
+    return waitForTurboFrame(turboFrameSelector).then((resolvedTurboFrame) => {
+      calculateWhenAvailable(resolvedTurboFrame)
+    })
+  }
+
+  calculateWhenAvailable(turboFrame)
+}
+
+function isInFilesTab(turboFrame) {
+  return turboFrame.getAttribute("src").endsWith("/files") || window.location.href.endsWith("/files")
+}
+
+
+function calculateWhenAvailable(turboFrame) {
+  if (isInFilesTab(turboFrame)) {
+    calculateChangedLines()
+  }
+
+  const callback = (mutationList, observer) => {
+    for (const mutation of mutationList) {
+      if (mutation.type === "attributes") {
+        if (mutation.attributeName === "complete" && isInFilesTab(turboFrame)) {
+          calculateChangedLines()
+        }
+      }
+    }
+  };
+
+  const observer = new MutationObserver(callback);
+  observer.observe(turboFrame, { attributes: true });
+}
+
+start("turbo-frame[src]")
